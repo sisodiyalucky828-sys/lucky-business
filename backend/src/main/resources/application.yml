@@ -1,0 +1,29 @@
+server:
+  port: ${PORT:9090}
+  servlet:
+    context-path: /
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:h2:file:./data/lucky_business;MODE=MySQL;DB_CLOSE_ON_EXIT=FALSE}
+    username: ${DB_USER:sa}
+    password: ${DB_PASSWORD:}
+    driver-class-name: ${DB_DRIVER:org.h2.Driver}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.H2Dialect
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
+app:
+  admin:
+    key: ${ADMIN_KEY:lucky8839}
+    phone: ${ADMIN_PHONE:9926361994}
+    password: ${ADMIN_PASSWORD:lucky8839}
+  upload-dir: ${UPLOAD_DIR:${user.dir}/uploads}
