@@ -108,9 +108,7 @@ const translations = {
     heroBadge: '100% Verified Indian Livestock Marketplace',
     heroTitle: 'Healthy & Verified Cows & Buffaloes,',
     heroTitleHighlight: 'Direct from Farmers.',
-    heroText:
-      'Buy and sell quality cattle with total confidence. Verified milk yields, genuine breeds, fair pricing, and direct dealer-free farmer contact.',
-    marketplace: 'Marketplace',
+      marketplace: 'Marketplace',
     featuredAnimals: 'Featured Livestock',
     featuredSub: 'Hand-picked healthy animals available right now in Mitera and nearby regions.',
     availableCount: 'animals available',
@@ -243,8 +241,6 @@ const translations = {
     heroBadge: '100% प्रमाणित भारतीय पशुधन मार्केटप्लेस',
     heroTitle: 'स्वस्थ और उच्च दुधारू गाय-भैंस,',
     heroTitleHighlight: 'सीधे स्थानीय पशुपालकों से।',
-    heroText:
-      'बिना किसी दलाली के सीधे किसान से बात करें। सही दूध क्षमता, शुद्ध नस्ल, उचित दाम और पारदर्शी सौदे की पूरी गारंटी।',
     marketplace: 'मार्केटप्लेस',
     featuredAnimals: 'उपलब्ध पशुधन',
     featuredSub: 'मइटेरा और आसपास के क्षेत्रों में अभी बिक्री के लिए उपलब्ध स्वस्थ पशु।',
@@ -1312,13 +1308,13 @@ function AddAnimalModal({ close, submit, notify, language, copy }) {
     }
     return {
       type: 'Cow',
-      breed: 'Sahiwal',
-      milkCapacityLiters: '10',
-      age: '4',
-      price: '65000',
-      location: 'Mitera, Madhya Pradesh',
+      breed: '',
+      milkCapacityLiters: '',
+      age: '',
+      price: '',
+      location: ', ',
       sellerName: '',
-      sellerPhone: '9926361994',
+      sellerPhone: '',
       description: ''
     };
   });
