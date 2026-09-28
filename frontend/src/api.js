@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:9090/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://lucky-business.onrender.com/api';
 export async function fetchLivestock(params = {}) { const query = new URLSearchParams(); Object.entries(params).forEach(([key, value]) => { if (value !== '' && value !== undefined && value !== null) query.set(key, value); }); const response = await fetch(`${API_URL}/livestock${query.toString() ? `?${query}` : ''}`); if (!response.ok) throw new Error('Unable to load livestock'); return response.json(); }
 export async function uploadLivestock(formData) { const response = await fetch(`${API_URL}/livestock/upload`, { method: 'POST', body: formData }); if (!response.ok) throw new Error('Unable to upload listing'); return response.json(); }
 export async function deleteLivestock(id, adminKey) { const response = await fetch(`${API_URL}/livestock/${id}`, { method: 'DELETE', headers: { 'X-Admin-Key': adminKey } }); if (!response.ok) throw new Error('Unable to remove listing'); }
