@@ -1298,7 +1298,7 @@ function AddAnimalModal({ close, submit, notify, language, copy }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Form values state for draft functionality
+  // Form values state for draft functionality (Ab saare fields blank/empty rahenge)
   const [formData, setFormData] = useState(() => {
     try {
       const saved = window.localStorage.getItem('lucky_animal_draft');
@@ -1312,7 +1312,7 @@ function AddAnimalModal({ close, submit, notify, language, copy }) {
       milkCapacityLiters: '',
       age: '',
       price: '',
-      location: ', ',
+      location: '',
       sellerName: '',
       sellerPhone: '',
       description: ''
