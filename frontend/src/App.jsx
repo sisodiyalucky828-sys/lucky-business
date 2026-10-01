@@ -1630,7 +1630,7 @@ function AddAnimalModal({ close, submit, notify, language, copy }) {
                 )}
               </button>
             </div>
-          </div>
+          </div> 
         </form>
       </div>
     </div>
@@ -2109,6 +2109,7 @@ function AdminLoginView({ onLogin, language, copy }) {
           <span>Lucky Business Security System</span>
         </div>
       </div>
+      
     </main>
   );
 }
