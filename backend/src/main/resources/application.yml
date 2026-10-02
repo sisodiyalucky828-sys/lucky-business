@@ -27,7 +27,7 @@ spring:
           max-request-size: 12MB
 app:
   admin:
-    key: ${ADMIN_KEY:lucky8839}
+    key: ${ADMIN_KEY}
     phone: ${ADMIN_PHONE:9926361994}
-    password: ${ADMIN_PASSWORD:lucky8839}
+    password: ${ADMIN_PASSWORD}
   upload-dir: ${UPLOAD_DIR:${user.dir}/uploads}

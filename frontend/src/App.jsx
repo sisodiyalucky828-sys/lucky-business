@@ -32,13 +32,10 @@ import {
   Share2,
   Bookmark
 } from 'lucide-react';
-import { checkAdmin, deleteLivestock, fetchLivestock, loginAdmin, uploadLivestock } from './api';
+import { API_ORIGIN, checkAdmin, deleteLivestock, fetchLivestock, loginAdmin, uploadLivestock } from './api';
 
 
 const PHONE = '9926361994';
-const API_ORIGIN = import.meta.env.VITE_API_URL
-  ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
-  : 'http://localhost:9090';
 
 const FALLBACK_COW = 'https://images.unsplash.com/photo-1546445317-29f4545e9d53?auto=format&fit=crop&w=1200&q=85';
 const FALLBACK_BUFFALO = 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&w=1200&q=85';
@@ -1630,7 +1627,7 @@ function AddAnimalModal({ close, submit, notify, language, copy }) {
                 )}
               </button>
             </div>
-          </div>
+          </div> 
         </form>
       </div>
     </div>
@@ -2109,6 +2106,7 @@ function AdminLoginView({ onLogin, language, copy }) {
           <span>Lucky Business Security System</span>
         </div>
       </div>
+      
     </main>
   );
 }
