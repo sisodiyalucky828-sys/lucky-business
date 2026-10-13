@@ -40,6 +40,8 @@ public class Livestock {
     @CollectionTable(name = "livestock_images", joinColumns = @JoinColumn(name = "livestock_id"))
     @Column(name = "image_url")
     private List<String> imageUrls = new ArrayList<>();
+    @Column(name = "video_url", length = 500)
+    private String videoUrl;
     @Enumerated(EnumType.STRING) private Status status = Status.AVAILABLE;
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt = Instant.now();
 
@@ -56,6 +58,7 @@ public class Livestock {
     public String getLocation(){return location;} public void setLocation(String v){location=v;}
     public String getDescription(){return description;} public void setDescription(String v){description=v;}
     public List<String> getImageUrls(){return imageUrls;} public void setImageUrls(List<String> v){imageUrls=v;}
+    public String getVideoUrl(){return videoUrl;} public void setVideoUrl(String v){videoUrl=v;}
     public Status getStatus(){return status;} public void setStatus(Status v){status=v;}
     public Instant getCreatedAt(){return createdAt;} public void setCreatedAt(Instant v){createdAt=v;}
 }

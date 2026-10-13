@@ -30,7 +30,11 @@ import {
   X,
   Check,
   Share2,
-  Bookmark
+  Bookmark,
+  Video,
+  Film,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { API_ORIGIN, checkAdmin, deleteLivestock, fetchLivestock, loginAdmin, uploadLivestock } from './api';
 
@@ -53,6 +57,13 @@ const fallbackImage = (animal) => {
 const imageOf = (animal) => {
   const source = animal?.imageUrls?.[0] || animal?.image_urls?.[0];
   if (!source) return fallbackImage(animal);
+  if (/^https?:\/\//i.test(source)) return source;
+  return `${API_ORIGIN}/${source.replace(/^\/+/, '')}`;
+};
+
+const videoOf = (animal) => {
+  const source = animal?.videoUrl || animal?.video_url;
+  if (!source) return null;
   if (/^https?:\/\//i.test(source)) return source;
   return `${API_ORIGIN}/${source.replace(/^\/+/, '')}`;
 };
@@ -163,6 +174,19 @@ const translations = {
     imageHint: 'Clear photos in natural daylight attract serious buyers (JPG, PNG · max 10MB)',
     removePhoto: 'Remove photo',
     changePhoto: 'Change photo',
+    sectionVideo: '4. Animal Video (Optional)',
+    clearVideo: 'Upload Animal Video (Optional)',
+    videoHint: 'Walking or milking video builds buyer trust (MP4, MOV, WebM · max 50MB, up to 60 sec)',
+    changeVideo: 'Change Video',
+    removeVideo: 'Remove Video',
+    videoFormatError: 'Please select a valid video format (MP4, MOV, WebM).',
+    videoSizeError: 'Video file must be under 50MB.',
+    videoDurationError: 'Video must be 60 seconds or less.',
+    videoUploading: 'Uploading video...',
+    videoProcessing: 'Saving animal listing...',
+    hasVideoTag: 'Video Available',
+    playVideo: 'Play Video',
+    videoSection: 'Animal Video',
     animalName: 'Animal Name / Title',
     animalNamePlaceholder: 'e.g. Sahiwal Lakshmi, Murrah Heera',
     category: 'Category',
@@ -296,6 +320,19 @@ const translations = {
     imageHint: 'प्राकृतिक उजाले में ली गई साफ फोटो से जल्दी ग्राहक मिलते हैं (JPG, PNG · अधिकतम 10MB)',
     removePhoto: 'फोटो हटाएं',
     changePhoto: 'फोटो बदलें',
+    sectionVideo: '४. पशु का वीडियो (वैकल्पिक / Optional)',
+    clearVideo: 'पशु का वीडियो अपलोड करें',
+    videoHint: 'चलते-फिरते या दूध दुहने का वीडियो ग्राहकों का भरोसा बढ़ाता है (MP4, MOV, WebM · अधिकतम 50MB, 60 सेकंड तक)',
+    changeVideo: 'वीडियो बदलें',
+    removeVideo: 'वीडियो हटाएं',
+    videoFormatError: 'कृपया मान्य वीडियो प्रारूप (MP4, MOV, WebM) चुनें।',
+    videoSizeError: 'वीडियो फ़ाइल 50MB से छोटी होनी चाहिए।',
+    videoDurationError: 'वीडियो अधिकतम 60 सेकंड का होना चाहिए।',
+    videoUploading: 'वीडियो अपलोड हो रहा है...',
+    videoProcessing: 'लिस्टिंग सेव हो रही है...',
+    hasVideoTag: 'वीडियो उपलब्ध',
+    playVideo: 'वीडियो चलाएं',
+    videoSection: 'पशु का वीडियो',
     animalName: 'पशु का नाम / शीर्षक',
     animalNamePlaceholder: 'उदा. साहीवाल लक्ष्मी, मुर्रा हीरा',
     category: 'श्रेणी (Category)',
@@ -421,16 +458,18 @@ export default function App() {
       });
   };
 
-  const addListing = async (formData) => {
+  const addListing = async (formData, onProgress) => {
     try {
-      const created = await uploadLivestock(formData);
+      const created = await uploadLivestock(formData, onProgress);
       setListings((items) => [created, ...items]);
       notify(copy.toastLive, 'success');
       setUploadOpen(false);
       // Remove any saved draft once submitted
       window.localStorage.removeItem('lucky_animal_draft');
-    } catch {
+      return created;
+    } catch (err) {
       notify(copy.toastFail, 'error');
+      throw err;
     }
   };
 
@@ -1238,6 +1277,11 @@ function AnimalCard({ animal, select, language, copy }) {
           {isBuffalo ? '🐃 ' : '🐄 '}
           {categoryLabel}
         </span>
+        {animal.videoUrl && (
+          <span className="card-video-tag" title={copy.hasVideoTag}>
+            <Video size={11} /> {copy.hasVideoTag}
+          </span>
+        )}
         <span className="card-verified-tag">
           <BadgeCheck size={13} />
           {copy.verifiedBadge}
@@ -1292,10 +1336,17 @@ function AnimalCard({ animal, select, language, copy }) {
    ========================================================================= */
 function AddAnimalModal({ close, submit, notify, language, copy }) {
   const [preview, setPreview] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [videoPreview, setVideoPreview] = useState(null);
+  const [videoFile, setVideoFile] = useState(null);
+  const [videoMeta, setVideoMeta] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const fileInputRef = useRef(null);
+  const [uploadProgress, setUploadProgress] = useState(null);
 
-  // Form values state for draft functionality (Ab saare fields blank/empty rahenge)
+  const fileInputRef = useRef(null);
+  const videoInputRef = useRef(null);
+
+  // Form values state for draft functionality
   const [formData, setFormData] = useState(() => {
     try {
       const saved = window.localStorage.getItem('lucky_animal_draft');
@@ -1316,6 +1367,14 @@ function AddAnimalModal({ close, submit, notify, language, copy }) {
     };
   });
 
+  // Release object URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (preview && preview.startsWith('blob:')) URL.revokeObjectURL(preview);
+      if (videoPreview && videoPreview.startsWith('blob:')) URL.revokeObjectURL(videoPreview);
+    };
+  }, [preview, videoPreview]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -1332,8 +1391,12 @@ function AddAnimalModal({ close, submit, notify, language, copy }) {
   };
 
   const handleRemovePhoto = (e) => {
-    e.stopPropagation();
+    e?.stopPropagation?.();
+    if (preview && preview.startsWith('blob:')) {
+      URL.revokeObjectURL(preview);
+    }
     setPreview(null);
+    setImageFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -1341,28 +1404,137 @@ function AddAnimalModal({ close, submit, notify, language, copy }) {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 10 * 1024 * 1024) {
-        notify('File exceeds 10MB limit', 'error');
+        notify(language === 'hi' ? 'फोटो फ़ाइल 10MB से छोटी होनी चाहिए।' : 'Photo file must be under 10MB', 'error');
+        if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
+      if (preview && preview.startsWith('blob:')) {
+        URL.revokeObjectURL(preview);
+      }
+      setImageFile(file);
       setPreview(URL.createObjectURL(file));
     }
+  };
+
+  const handleRemoveVideo = (e) => {
+    e?.stopPropagation?.();
+    if (videoPreview && videoPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(videoPreview);
+    }
+    setVideoPreview(null);
+    setVideoFile(null);
+    setVideoMeta(null);
+    if (videoInputRef.current) videoInputRef.current.value = '';
+  };
+
+  const handleVideoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 1. Format validation: MP4, MOV, WebM, M4V
+    const validExtensions = ['.mp4', '.mov', '.webm', '.m4v'];
+    const fileName = (file.name || '').toLowerCase();
+    const hasValidExt = validExtensions.some((ext) => fileName.endsWith(ext));
+    const validMimes = ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-m4v'];
+    const hasValidMime = validMimes.includes((file.type || '').toLowerCase()) || (file.type && file.type.startsWith('video/'));
+
+    if (!hasValidExt && !hasValidMime) {
+      notify(copy.videoFormatError, 'error');
+      if (videoInputRef.current) videoInputRef.current.value = '';
+      return;
+    }
+
+    // 2. Size validation: max 50MB
+    const maxSizeBytes = 50 * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      notify(copy.videoSizeError, 'error');
+      if (videoInputRef.current) videoInputRef.current.value = '';
+      return;
+    }
+
+    // 3. Duration validation: max 60 seconds
+    const objectUrl = URL.createObjectURL(file);
+    const tempVideo = document.createElement('video');
+    tempVideo.preload = 'metadata';
+
+    tempVideo.onloadedmetadata = () => {
+      const duration = tempVideo.duration;
+      if (duration && duration > 60.5) {
+        notify(copy.videoDurationError, 'error');
+        URL.revokeObjectURL(objectUrl);
+        if (videoInputRef.current) videoInputRef.current.value = '';
+        return;
+      }
+
+      if (videoPreview && videoPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(videoPreview);
+      }
+      setVideoPreview(objectUrl);
+      setVideoFile(file);
+      const mins = Math.floor(duration / 60);
+      const secs = Math.floor(duration % 60);
+      const formatted = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+      setVideoMeta({
+        name: file.name,
+        sizeMb: (file.size / (1024 * 1024)).toFixed(1),
+        durationSeconds: Math.round(duration),
+        formattedDuration: formatted
+      });
+    };
+
+    tempVideo.onerror = () => {
+      // Codec fallback for formats whose metadata can't be parsed offscreen
+      if (videoPreview && videoPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(videoPreview);
+      }
+      setVideoPreview(objectUrl);
+      setVideoFile(file);
+      setVideoMeta({
+        name: file.name,
+        sizeMb: (file.size / (1024 * 1024)).toFixed(1),
+        durationSeconds: null,
+        formattedDuration: '0:30'
+      });
+    };
+
+    tempVideo.src = objectUrl;
   };
 
   const handleSubmitForm = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setUploadProgress(0);
     const formElement = e.currentTarget;
     const data = new FormData(formElement);
+
+    // Make sure image and video files are attached
+    if (imageFile && !data.get('image')) {
+      data.append('image', imageFile);
+    }
+    if (videoFile && !data.get('video')) {
+      data.append('video', videoFile);
+    }
+
     try {
-      await submit(data);
+      await submit(data, (percent) => {
+        setUploadProgress(percent);
+      });
+    } catch {
+      // Error notifications are already handled
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(null);
     }
   };
 
   return (
     <div className="modal-backdrop-screen" onMouseDown={close}>
       <div className="add-animal-modal-card" onMouseDown={(e) => e.stopPropagation()}>
+        {/* Mobile top pull drawer indicator */}
+        <div className="modal-mobile-handle-bar">
+          <span className="modal-mobile-handle-pill" />
+        </div>
+
         {/* Modal Sticky Header */}
         <div className="modal-header-bar">
           <div>
@@ -1601,24 +1773,147 @@ function AddAnimalModal({ close, submit, notify, language, copy }) {
                 />
               </label>
             </div>
+
+            {/* SECTION 4: VIDEO UPLOAD (OPTIONAL) */}
+            <div className="form-section-box video-section-box">
+              <div className="form-section-header-row">
+                <h4 className="form-section-heading no-margin">
+                  <Video size={16} className="video-section-icon" />
+                  <span>{copy.sectionVideo}</span>
+                </h4>
+                <span className="section-pill-tag optional-tag">
+                  {language === 'hi' ? 'वैकल्पिक' : 'Optional'}
+                </span>
+              </div>
+
+              {videoPreview ? (
+                <div className="video-preview-card">
+                  <div className="video-player-container">
+                    <video
+                      src={videoPreview}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="uploaded-preview-video-player"
+                    />
+                  </div>
+
+                  <div className="video-meta-bar">
+                    <div className="video-meta-info">
+                      <div className="video-file-title" title={videoMeta?.name}>
+                        <Film size={14} className="video-film-icon" />
+                        <span className="video-name-truncate">{videoMeta?.name || 'animal-video.mp4'}</span>
+                      </div>
+                      <div className="video-meta-chips">
+                        <span className="vchip size">{videoMeta?.sizeMb} MB</span>
+                        {videoMeta?.formattedDuration && (
+                          <span className="vchip duration">⏱ {videoMeta?.formattedDuration}</span>
+                        )}
+                        <span className="vchip verified">✓ Max 60s OK</span>
+                      </div>
+                    </div>
+
+                    <div className="video-actions-group">
+                      <button
+                        type="button"
+                        className="btn-chip"
+                        onClick={() => videoInputRef.current?.click()}
+                      >
+                        <RotateCcw size={13} />
+                        <span>{copy.changeVideo}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-chip danger"
+                        onClick={handleRemoveVideo}
+                      >
+                        <Trash2 size={13} />
+                        <span>{copy.removeVideo}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <label className="photo-upload-dropzone video-upload-dropzone">
+                  <div className="upload-empty-placeholder video-placeholder">
+                    <div className="upload-icon-circle video-circle">
+                      <Video size={24} />
+                    </div>
+                    <strong className="upload-prompt">{copy.clearVideo}</strong>
+                    <span className="upload-subprompt">{copy.videoHint}</span>
+                    <div className="video-format-tags">
+                      <span className="vformat-pill">MP4</span>
+                      <span className="vformat-pill">MOV</span>
+                      <span className="vformat-pill">WebM</span>
+                      <span className="vformat-pill highlight">Max 50MB · 60s</span>
+                    </div>
+                  </div>
+                  <input
+                    ref={videoInputRef}
+                    name="video"
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm,video/x-m4v,.mp4,.mov,.webm,.m4v"
+                    onChange={handleVideoChange}
+                    className="hidden-file-input"
+                  />
+                </label>
+              )}
+            </div>
           </div>
 
           {/* STICKY BOTTOM ACTIONS BAR */}
           <div className="modal-sticky-actions-bar">
-            <button type="button" className="btn-cancel" onClick={close}>
-              {copy.cancel}
-            </button>
-            <div className="right-action-buttons">
-              <button type="button" className="btn-draft" onClick={handleSaveDraft}>
-                {copy.saveDraft}
-              </button>
+            {isSubmitting && (
+              <div className="modal-upload-progress-wrapper">
+                <div className="modal-progress-labels">
+                  <span className="progress-status-text">
+                    <Loader2 size={13} className="spin-animation" />
+                    {videoFile ? copy.videoUploading : copy.videoProcessing}
+                  </span>
+                  <span className="progress-percent-text">
+                    {uploadProgress !== null ? `${uploadProgress}%` : ''}
+                  </span>
+                </div>
+                <div className="modal-progress-track">
+                  <div
+                    className="modal-progress-bar-fill"
+                    style={{ width: `${uploadProgress !== null && uploadProgress > 0 ? uploadProgress : 35}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="modal-actions-layout">
+              <div className="modal-secondary-actions">
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  onClick={close}
+                  disabled={isSubmitting}
+                >
+                  {copy.cancel}
+                </button>
+                <button
+                  type="button"
+                  className="btn-draft"
+                  onClick={handleSaveDraft}
+                  disabled={isSubmitting}
+                >
+                  <Bookmark size={14} />
+                  <span>{copy.saveDraft}</span>
+                </button>
+              </div>
+
               <button
                 type="submit"
                 disabled={isSubmitting}
                 className="primary-pill-btn submit-btn"
               >
                 {isSubmitting ? (
-                  <span>Saving...</span>
+                  <span className="btn-loading-content">
+                    <Loader2 size={16} className="spin-animation" />
+                    <span>{uploadProgress !== null ? `${uploadProgress}%` : 'Saving...'}</span>
+                  </span>
                 ) : (
                   <>
                     <UploadIcon size={16} />
@@ -1638,10 +1933,13 @@ function AddAnimalModal({ close, submit, notify, language, copy }) {
    5. ANIMAL DETAILS MODAL
    ========================================================================= */
 function AnimalDetailModal({ animal, close, language, copy }) {
+  const [activeMedia, setActiveMedia] = useState('photo');
   const isBuffalo = typeOf(animal) === 'Buffalo' || typeOf(animal) === 'भैंस';
   const categoryLabel = isBuffalo
     ? (language === 'hi' ? 'भैंस (Buffalo)' : 'Buffalo')
     : (language === 'hi' ? 'गाय (Cow)' : 'Cow');
+
+  const hasVideo = Boolean(animal.videoUrl);
 
   return (
     <div className="modal-backdrop-screen" onMouseDown={close}>
@@ -1653,19 +1951,59 @@ function AnimalDetailModal({ animal, close, language, copy }) {
         <div className="detail-modal-layout">
           {/* Left Media Column */}
           <div className="detail-media-pane">
-            <img
-              src={imageOf(animal)}
-              alt={animal.title}
-              className="detail-main-img"
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = fallbackImage(animal);
-              }}
-            />
+            {hasVideo && (
+              <div className="detail-media-switcher">
+                <button
+                  type="button"
+                  className={`media-switch-btn ${activeMedia === 'photo' ? 'active' : ''}`}
+                  onClick={() => setActiveMedia('photo')}
+                >
+                  <ImagePlus size={13} />
+                  <span>{language === 'hi' ? 'फोटो' : 'Photo'}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`media-switch-btn ${activeMedia === 'video' ? 'active' : ''}`}
+                  onClick={() => setActiveMedia('video')}
+                >
+                  <Video size={13} />
+                  <span>{language === 'hi' ? 'वीडियो' : 'Video'}</span>
+                </button>
+              </div>
+            )}
+
+            {hasVideo && activeMedia === 'video' ? (
+              <div className="detail-video-container">
+                <video
+                  src={videoOf(animal)}
+                  controls
+                  playsInline
+                  autoPlay
+                  className="detail-main-video"
+                  poster={imageOf(animal)}
+                />
+              </div>
+            ) : (
+              <img
+                src={imageOf(animal)}
+                alt={animal.title}
+                className="detail-main-img"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = fallbackImage(animal);
+                }}
+              />
+            )}
+
             <div className="detail-image-badges">
               <span className={`detail-cat-badge ${isBuffalo ? 'buffalo' : 'cow'}`}>
                 {isBuffalo ? '🐃 ' : '🐄 '}{categoryLabel}
               </span>
+              {hasVideo && (
+                <span className="detail-video-badge" onClick={() => setActiveMedia('video')}>
+                  <Video size={12} /> {copy.hasVideoTag}
+                </span>
+              )}
               <span className="detail-verified-badge">
                 <BadgeCheck size={14} />
                 {copy.verifiedBadge}
