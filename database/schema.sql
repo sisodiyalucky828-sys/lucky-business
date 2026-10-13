@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS livestock (
   seller_name VARCHAR(120) NOT NULL,
   seller_phone VARCHAR(30) NOT NULL,
   location VARCHAR(160) NOT NULL,
+  video_url VARCHAR(500) NULL,
   status ENUM('AVAILABLE','SOLD') NOT NULL DEFAULT 'AVAILABLE',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_livestock_status (status),

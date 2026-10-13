@@ -55,7 +55,7 @@ public class LivestockController {
     }
 
     @PostMapping(value = "/upload", consumes = "multipart/form-data")
-    public Livestock upload(@RequestParam(value = "title", required = false) String title, @RequestParam("type") String type, @RequestParam("breed") String breed, @RequestParam("milkCapacityLiters") Double milkCapacityLiters, @RequestParam("age") Integer age, @RequestParam("price") Long price, @RequestParam("sellerName") String sellerName, @RequestParam("sellerPhone") String sellerPhone, @RequestParam("location") String location, @RequestParam(value = "description", required = false) String description, @RequestPart(value = "images", required = false) List<MultipartFile> images, @RequestPart(value = "image", required = false) MultipartFile image) throws IOException {
+    public Livestock upload(@RequestParam(value = "title", required = false) String title, @RequestParam("type") String type, @RequestParam("breed") String breed, @RequestParam("milkCapacityLiters") Double milkCapacityLiters, @RequestParam("age") Integer age, @RequestParam("price") Long price, @RequestParam("sellerName") String sellerName, @RequestParam("sellerPhone") String sellerPhone, @RequestParam("location") String location, @RequestParam(value = "description", required = false) String description, @RequestPart(value = "images", required = false) List<MultipartFile> images, @RequestPart(value = "image", required = false) MultipartFile image, @RequestPart(value = "video", required = false) MultipartFile video) throws IOException {
         Livestock item = new Livestock(); item.setTitle(title != null && !title.isBlank() ? title : breed + " " + type); item.setType(type); item.setBreed(breed); item.setMilkCapacityLiters(milkCapacityLiters); item.setAge(age); item.setPrice(price); item.setSellerName(sellerName); item.setSellerPhone(sellerPhone); item.setLocation(location); item.setDescription(description);
         List<MultipartFile> files = images == null ? new ArrayList<>() : new ArrayList<>(images);
         if (files.isEmpty() && image != null) files.add(image);
@@ -68,11 +68,17 @@ public class LivestockController {
             imageUrls.add("/uploads/" + filename);
         }
         item.setImageUrls(imageUrls);
+        if (video != null && !video.isEmpty()) {
+            String extension = video.getOriginalFilename() != null && video.getOriginalFilename().contains(".") ? video.getOriginalFilename().substring(video.getOriginalFilename().lastIndexOf('.')) : ".mp4";
+            String videoFilename = UUID.randomUUID() + extension.toLowerCase();
+            Files.copy(video.getInputStream(), uploadDirectory.resolve(videoFilename), StandardCopyOption.REPLACE_EXISTING);
+            item.setVideoUrl("/uploads/" + videoFilename);
+        }
         return repository.save(item);
     }
 
     @PutMapping("/{id}")
-    public Livestock update(@PathVariable Long id, @RequestBody @Valid Livestock changes, @RequestHeader(value = "X-Admin-Key", required = false) String key) { requireAdmin(key); Livestock item = repository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)); item.setTitle(changes.getTitle()); item.setType(changes.getType()); item.setBreed(changes.getBreed()); item.setMilkCapacityLiters(changes.getMilkCapacityLiters()); item.setAge(changes.getAge()); item.setPrice(changes.getPrice()); item.setSellerName(changes.getSellerName()); item.setSellerPhone(changes.getSellerPhone()); item.setLocation(changes.getLocation()); item.setStatus(changes.getStatus()); return repository.save(item); }
+    public Livestock update(@PathVariable Long id, @RequestBody @Valid Livestock changes, @RequestHeader(value = "X-Admin-Key", required = false) String key) { requireAdmin(key); Livestock item = repository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)); item.setTitle(changes.getTitle()); item.setType(changes.getType()); item.setBreed(changes.getBreed()); item.setMilkCapacityLiters(changes.getMilkCapacityLiters()); item.setAge(changes.getAge()); item.setPrice(changes.getPrice()); item.setSellerName(changes.getSellerName()); item.setSellerPhone(changes.getSellerPhone()); item.setLocation(changes.getLocation()); item.setStatus(changes.getStatus()); if (changes.getVideoUrl() != null) item.setVideoUrl(changes.getVideoUrl()); return repository.save(item); }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
